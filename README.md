@@ -88,7 +88,7 @@ MongoDB (Mongoose)
 
 1. **Clone the repo:**
    ```sh
-   git clone https://github.com/your-org/p2peducationsystem.git
+   git clone https://github.com/dinethjanitha/saviyalearning-backend
    cd p2peducationsystem/backend
 
 ### Session Management
