@@ -1,13 +1,18 @@
 import nodemailer from 'nodemailer';
 
+import dotenv from 'dotenv';
+
+
+dotenv.config();
+
 const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: "p2pedusrilanka@gmail.com",
-        pass: "dhfu uwfr wnpm uakq",
-      },
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
 });
 
 export const sendMail = async ({ to, subject, html, text }) => {

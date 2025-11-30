@@ -1,10 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import morgan from 'morgan';
 
-// Load environment variables
+import dotenv from 'dotenv';
+
+// Load environment variables FIRST
 dotenv.config();
 
 const app = express();
