@@ -37,6 +37,7 @@ This backend powers a peer-to-peer education platform for disaster relief and co
 - **Open source**: MIT License, contributions welcome
 ## API Highlights
 
+
 ### Resource Endpoints
 
 - `POST /api/resources` — Add a resource (Google Drive/shared link) to a group
@@ -49,47 +50,6 @@ This backend powers a peer-to-peer education platform for disaster relief and co
 ### Activity Log Endpoints
 
 - `GET /api/activity-logs?page=1&limit=30&userId=...&actionType=...&q=resourceId` — List activity logs (admin only, pagination, filtering)
-
-### Other
-
-- All endpoints require JWT authentication. Admin endpoints require admin role.
-
-
-
-## Architecture
-
-- **Node.js + Express.js**: REST API backend
-- **MongoDB (Mongoose ODM)**: Database
-- **JWT**: Authentication (access/refresh tokens)
-- **Nodemailer**: Email notifications
-- **MVC structure**: Modular, extensible codebase
-- **ActivityLog**: Auditable user/admin actions
-- **Analytics**: Admin dashboard stats
-
-### High-Level Diagram
-
-```
-Client (Next.js, Web, Mobile)
-   |
-   |  REST API (HTTPS)
-   v
-Express.js (Node.js)
-   |
-   |-- Controllers (auth, user, admin, analytics, ...)
-   |-- Middleware (auth, admin, logging)
-   |-- Models (User, Group, Resource, Session, ...)
-   |-- Services (mail, ...)
-   v
-MongoDB (Mongoose)
-```
-
-
-## Getting Started
-
-1. **Clone the repo:**
-   ```sh
-   git clone https://github.com/dinethjanitha/saviyalearning-backend
-   cd p2peducationsystem/backend
 
 ### Session Management
 
@@ -127,7 +87,47 @@ This endpoint updates the `meetingLink` for a session and logs the change in the
 
 Sessions are logged in `ActivityLog` for auditing. Only the user or an admin can list sessions for a user. Sessions are stored in the `Session` collection.
 
-   ```
+### Other
+
+- All endpoints require JWT authentication. Admin endpoints require admin role.
+
+
+## Architecture
+
+- **Node.js + Express.js**: REST API backend
+- **MongoDB (Mongoose ODM)**: Database
+- **JWT**: Authentication (access/refresh tokens)
+- **Nodemailer**: Email notifications
+- **MVC structure**: Modular, extensible codebase
+- **ActivityLog**: Auditable user/admin actions
+- **Analytics**: Admin dashboard stats
+
+### High-Level Diagram
+
+```
+Client (Next.js, Web, Mobile)
+   |
+   |  REST API (HTTPS)
+   v
+Express.js (Node.js)
+   |
+   |-- Controllers (auth, user, admin, analytics, ...)
+   |-- Middleware (auth, admin, logging)
+   |-- Models (User, Group, Resource, Session, ...)
+   |-- Services (mail, ...)
+   v
+MongoDB (Mongoose)
+```
+
+
+## Getting Started
+
+1. **Clone the repo:**
+   ```sh
+   git clone https://github.com/dinethjanitha/saviyalearning-backend
+   cd p2peducationsystem/backend
+
+
 2. **Install dependencies:**
    ```sh
    npm install
