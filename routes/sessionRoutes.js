@@ -14,4 +14,15 @@ const auth = require('../middleware/auth');
 
 
 
-module.exports = router;router.get('/list', auth, sessionController.listSessions);// List sessions for a user (admin or self)router.post('/validate', sessionController.validateSession);// Validate sessionrouter.post('/end', auth, sessionController.endSession);// End session (logout)outer.post('/create', auth, sessionController.createSession);
+// Join a session (attendance)
+router.post('/join', auth, sessionController.joinSession);
+// Leave a session (attendance)
+router.post('/leave', auth, sessionController.leaveSession);
+
+router.post('/create', auth, sessionController.createSession);
+router.post('/end', auth, sessionController.endSession);
+router.post('/validate', sessionController.validateSession);
+router.get('/list', auth, sessionController.listSessions);
+router.post('/update-meeting-link', auth, sessionController.updateMeetingLink);
+
+module.exports = router;

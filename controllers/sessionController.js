@@ -1,3 +1,50 @@
+// User joins a session (attendance)
+exports.joinSession = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const userId = req.user._id;
+    const session = await Session.findById(sessionId);
+    if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    // Prevent duplicate join
+    const alreadyJoined = session.attendees.find(a => a.userId.toString() === userId.toString() && !a.leftAt);
+    if (alreadyJoined) return res.status(400).json({ success: false, error: 'User already joined' });
+    session.attendees.push({ userId, joinedAt: new Date() });
+    await session.save();
+    await ActivityLog.create({
+      user: userId,
+      action: 'session_joined',
+      details: { sessionId: session._id },
+      timestamp: new Date(),
+    });
+    res.json({ success: true, session });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// User leaves a session (attendance)
+exports.leaveSession = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const userId = req.user._id;
+    const session = await Session.findById(sessionId);
+    if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    // Find the attendee record without leftAt
+    const attendee = session.attendees.find(a => a.userId.toString() === userId.toString() && !a.leftAt);
+    if (!attendee) return res.status(400).json({ success: false, error: 'User not currently joined' });
+    attendee.leftAt = new Date();
+    await session.save();
+    await ActivityLog.create({
+      user: userId,
+      action: 'session_left',
+      details: { sessionId: session._id },
+      timestamp: new Date(),
+    });
+    res.json({ success: true, session });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
 // backend/controllers/sessionController.js
 const Session = require('../models/Session');
 const User = require('../models/User');

@@ -35,61 +35,86 @@ This backend powers a peer-to-peer education platform for disaster relief and co
 - Modular structure for future features (sessions, chat, reporting)
 - Environment config via `.env`
 - **Open source**: MIT License, contributions welcome
-## API Highlights
 
+## API Overview
 
-### Resource Endpoints
+All endpoints require JWT authentication unless otherwise noted. Admin endpoints require admin role.
 
-- `POST /api/resources` — Add a resource (Google Drive/shared link) to a group
-- `GET /api/resources/group/:groupId?page=1&limit=20&q=search` — List resources for a group (pagination, search)
-- `GET /api/resources/:id` — View a resource (increments views count)
-- `PUT /api/resources/:id` — Update a resource (uploader or admin)
+### Resource Management
+- `POST   /api/resources` — Add a resource (Google Drive/shared link) to a group
+- `GET    /api/resources/group/:groupId?page=1&limit=20&q=search` — List resources for a group (pagination, search)
+- `GET    /api/resources/:id` — View a resource (increments views count)
+- `PUT    /api/resources/:id` — Update a resource (uploader or admin)
 - `DELETE /api/resources/:id` — Delete a resource (uploader or admin)
 - `DELETE /api/resources/:id/admin` — Admin-only delete
 
-### Activity Log Endpoints
+### Session Management
+Session management tracks online class/meeting sessions, attendance, and meeting links.
 
+- `POST   /api/sessions/create` — Create a session
+   - Body: `{ userId, userAgent?, ip?, meetingLink? }`
+- `POST   /api/sessions/join` — Join a session (attendance)
+   - Body: `{ sessionId }`
+- `POST   /api/sessions/leave` — Leave a session (attendance)
+   - Body: `{ sessionId }`
+- `POST   /api/sessions/end` — End a session (logout/complete)
+   - Body: `{ sessionId }`
+- `POST   /api/sessions/update-meeting-link` — Update the meeting link for a session
+   - Body: `{ sessionId, meetingLink }`
+- `POST   /api/sessions/validate` — Validate if a session is active
+   - Body: `{ sessionId }`
+- `GET    /api/sessions/list?userId=...` — List sessions for a user (admin or self)
+
+**Attendance:**
+   - Join/leave endpoints update the `attendees` array with `joinedAt`/`leftAt` timestamps.
+   - All session actions are logged in `ActivityLog` for auditing.
+
+### Activity Log
 - `GET /api/activity-logs?page=1&limit=30&userId=...&actionType=...&q=resourceId` — List activity logs (admin only, pagination, filtering)
 
-### Session Management
+### User Management
+- `POST   /api/auth/signup` — Register
+- `POST   /api/auth/login` — Login
+- `POST   /api/auth/refresh` — Refresh token
+- `POST   /api/auth/logout` — Logout
+- `POST   /api/auth/forgot-password` — Request password reset
+- `POST   /api/auth/reset-password` — Reset password
+- `POST   /api/auth/verify-email` — Verify email
+- `GET    /api/users/me` — Get my profile
+- `PUT    /api/users/me` — Update my profile
 
-Session management allows tracking user sessions for login/logout, auditing, and analytics. Sessions are created on login and ended on logout. Admins and users can list sessions.
+### Admin UMS (requires admin/superadmin)
+- `GET    /api/users` — List/search users
+- `GET    /api/users/:id` — Get user by ID
+- `PUT    /api/users/:id` — Update user
+- `DELETE /api/users/:id` — Delete user
+- `PATCH  /api/users/:id/role` — Change user role
+- `PATCH  /api/users/:id/status` — Ban/suspend/reactivate user
+- `POST   /api/users/:id/reset-password` — Admin reset user password
 
-#### Create Session (Login)
-- **POST** `/api/sessions/create`
-- **Auth:** Required (JWT)
-- **Body:** `{ userId, userAgent?, ip?, meetingLink? }`
-- **Response:** `{ success, session }`
+### Learning Groups
+- `POST   /api/groups` — Create group (auth required, unique by Grade+Subject+Topic)
+- `POST   /api/groups/:id/join` — Join group (auth required)
+- `POST   /api/groups/:id/leave` — Leave group (auth required)
+- `GET    /api/groups/search` — Search groups (by grade, subject, topic, or query)
+- `GET    /api/groups/:id` — Get group details
+- `GET    /api/groups/my` — List my groups (auth required)
 
-#### End Session (Logout)
-- **POST** `/api/sessions/end`
-- **Auth:** Required (JWT)
-- **Body:** `{ sessionId }`
-- **Response:** `{ success, session }`
+### Learning Group Admin (admin only)
+- `GET    /api/groups` — List/search all groups (filters, pagination)
+- `PUT    /api/groups/:id` — Update group info (grade, subject, topic, description, status, etc.)
+- `DELETE /api/groups/:id` — Delete or archive group (`?archive=true` to archive)
+- `DELETE /api/groups/:id/members/:userId` — Remove/ban user from group
+- `PATCH  /api/groups/:id/members/:userId/role` — Change member role in group
 
-#### Validate Session
-- **POST** `/api/sessions/validate`
-- **Body:** `{ sessionId }`
-- **Response:** `{ success, session }` or error
+### Analytics (admin)
+- `GET /api/analytics` — User stats, recent activities
 
-#### List Sessions
-- **GET** `/api/sessions/list?userId=...`
-- **Auth:** Required (JWT)
-- **Response:** `{ success, sessions }`
-
-#### Update Meeting Link
-- **POST** `/api/sessions/update-meeting-link`
-- **Auth:** Required (JWT)
-- **Body:** `{ sessionId, meetingLink }`
-- **Response:** `{ success, session }`
-
-This endpoint updates the `meetingLink` for a session and logs the change in the `ActivityLog` for auditing.
-
-Sessions are logged in `ActivityLog` for auditing. Only the user or an admin can list sessions for a user. Sessions are stored in the `Session` collection.
-
-### Other
-
-- All endpoints require JWT authentication. Admin endpoints require admin role.
+### (Planned) Future Endpoints
+- `/api/resources` — Resource catalog, requests
+- `/api/sessions` — Peer-to-peer sessions (Google Meet, WhatsApp integration)
+- `/api/chat` — Group chat, messaging
+- `/api/reports` — User/content reporting
 
 
 ## Architecture
@@ -125,7 +150,6 @@ MongoDB (Mongoose)
 1. **Clone the repo:**
    ```sh
    git clone https://github.com/dinethjanitha/saviyalearning-backend
-   cd p2peducationsystem/backend
 
 
 2. **Install dependencies:**
@@ -137,7 +161,7 @@ MongoDB (Mongoose)
    ```sh
    npm start
    # or
-   node src/server.js
+   node server.js
    ```
 
 
@@ -149,59 +173,90 @@ Create a `.env` file in the backend root with:
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 JWT_REFRESH_SECRET=your_refresh_secret
-EMAIL_USER=your_email_address
-EMAIL_PASS=your_email_password
+SMTP_USER=your_email_address
+SMTP_PASS=your_email_password
 EMAIL_FROM=your_email_from_name
 CLIENT_URL=your_frontend_url
 ```
 
 
 
-## API Endpoints
 
-### Auth
-- `POST /api/auth/signup` — Register
-- `POST /api/auth/login` — Login
-- `POST /api/auth/refresh` — Refresh token
-- `POST /api/auth/logout` — Logout
-- `POST /api/auth/forgot-password` — Request password reset
-- `POST /api/auth/reset-password` — Reset password
-- `POST /api/auth/verify-email` — Verify email
+# API Endpoints
 
-### User
-- `GET /api/users/me` — Get my profile
-- `PUT /api/users/me` — Update my profile
+All endpoints require JWT authentication unless otherwise noted. Admin endpoints require admin role.
 
-### Admin UMS (requires admin/superadmin)
-- `GET /api/users` — List/search users
-- `GET /api/users/:id` — Get user by ID
-- `PUT /api/users/:id` — Update user
-- `DELETE /api/users/:id` — Delete user
-- `PATCH /api/users/:id/role` — Change user role
-- `PATCH /api/users/:id/status` — Ban/suspend/reactivate user
-- `POST /api/users/:id/reset-password` — Admin reset user password
+## Auth & User
+- `POST   /api/auth/signup` — Register a new user
+- `POST   /api/auth/login` — Login and receive JWT tokens
+- `POST   /api/auth/refresh` — Refresh access token
+- `POST   /api/auth/logout` — Logout
+- `POST   /api/auth/forgot-password` — Request password reset email
+- `POST   /api/auth/reset-password` — Reset password
+- `POST   /api/auth/verify-email` — Verify email address
+- `GET    /api/users/me` — Get current user's profile
+- `PUT    /api/users/me` — Update current user's profile
 
-### Learning Groups
-- `POST /api/groups` — Create group (auth required, unique by Grade+Subject+Topic)
-- `POST /api/groups/:id/join` — Join group (auth required)
-- `POST /api/groups/:id/leave` — Leave group (auth required)
-- `GET /api/groups/search` — Search groups (by grade, subject, topic, or query)
-- `GET /api/groups/:id` — Get group details
-- `GET /api/groups/my` — List my groups (auth required)
+## Admin User Management (UMS)
+- `GET    /api/users` — List/search users
+- `GET    /api/users/:id` — Get user by ID
+- `PUT    /api/users/:id` — Update user by ID
+- `DELETE /api/users/:id` — Delete user by ID
+- `PATCH  /api/users/:id/role` — Change user role
+- `PATCH  /api/users/:id/status` — Ban/suspend/reactivate user
+- `POST   /api/users/:id/reset-password` — Admin reset user password
 
-### Learning Group Admin (admin only)
-- `GET /api/groups` — List/search all groups (filters, pagination)
-- `PUT /api/groups/:id` — Update group info (grade, subject, topic, description, status, etc.)
-- `DELETE /api/groups/:id` — Delete or archive group (`?archive=true` to archive)
+## Learning Groups
+- `POST   /api/groups` — Create group (unique by Grade+Subject+Topic)
+- `POST   /api/groups/:id/join` — Join group
+- `POST   /api/groups/:id/leave` — Leave group
+- `GET    /api/groups/search` — Search groups (by grade, subject, topic, or query)
+- `GET    /api/groups/:id` — Get group details
+- `GET    /api/groups/my` — List my groups
+
+## Learning Group Admin (admin only)
+- `GET    /api/groups` — List/search all groups (filters, pagination)
+- `PUT    /api/groups/:id` — Update group info
+- `DELETE /api/groups/:id` — Delete or archive group (`?archive=true`)
 - `DELETE /api/groups/:id/members/:userId` — Remove/ban user from group
-- `PATCH /api/groups/:id/members/:userId/role` — Change member role in group
+- `PATCH  /api/groups/:id/members/:userId/role` — Change member role in group
 
-**Permissions:** Only users with `admin` or `superadmin` role can access these endpoints.
+## Resource Management
+- `POST   /api/resources` — Add a resource (Google Drive/shared link) to a group
+- `GET    /api/resources/group/:groupId?page=1&limit=20&q=search` — List resources for a group (pagination, search)
+- `GET    /api/resources/:id` — View a resource (increments views count)
+- `PUT    /api/resources/:id` — Update a resource (uploader or admin)
+- `DELETE /api/resources/:id` — Delete a resource (uploader or admin)
+- `DELETE /api/resources/:id/admin` — Admin-only delete
 
-### Analytics (admin)
+## Session Management
+Session management tracks online class/meeting sessions, attendance, and meeting links.
+
+- `POST   /api/sessions/create` — Create a session
+   - Body: `{ userId, userAgent?, ip?, meetingLink? }`
+- `POST   /api/sessions/join` — Join a session (attendance)
+   - Body: `{ sessionId }`
+- `POST   /api/sessions/leave` — Leave a session (attendance)
+   - Body: `{ sessionId }`
+- `POST   /api/sessions/end` — End a session (logout/complete)
+   - Body: `{ sessionId }`
+- `POST   /api/sessions/update-meeting-link` — Update the meeting link for a session
+   - Body: `{ sessionId, meetingLink }`
+- `POST   /api/sessions/validate` — Validate if a session is active
+   - Body: `{ sessionId }`
+- `GET    /api/sessions/list?userId=...` — List sessions for a user (admin or self)
+
+**Attendance:**
+   - Join/leave endpoints update the `attendees` array with `joinedAt`/`leftAt` timestamps.
+   - All session actions are logged in `ActivityLog` for auditing.
+
+## Activity Log
+- `GET /api/activity-logs?page=1&limit=30&userId=...&actionType=...&q=resourceId` — List activity logs (admin only, pagination, filtering)
+
+## Analytics (admin)
 - `GET /api/analytics` — User stats, recent activities
 
-### (Planned) Future Endpoints
+## (Planned) Future Endpoints
 - `/api/resources` — Resource catalog, requests
 - `/api/sessions` — Peer-to-peer sessions (Google Meet, WhatsApp integration)
 - `/api/chat` — Group chat, messaging
