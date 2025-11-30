@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 // Middleware to check if user is admin or superadmin
 export const isAdmin = (req, res, next) => {
   if (!req.user || !['admin', 'superadmin'].includes(req.user.role)) {
@@ -5,7 +6,6 @@ export const isAdmin = (req, res, next) => {
   }
   next();
 };
-import jwt from 'jsonwebtoken';
 
 export const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;

@@ -1,10 +1,14 @@
 // backend/routes/sessionRoutes.js
-const express = require('express');
+
+import express from 'express';
+
+import * as sessionController from '../controllers/sessionController.js';
+import { authenticateJWT as auth, isAdmin } from '../middleware/auth.js';
+
 const router = express.Router();
-const sessionController = require('../controllers/sessionController');
-const auth = require('../middleware/auth');
 
 // Create session (login) - called after successful login
+
 
 
 
@@ -19,10 +23,15 @@ router.post('/join', auth, sessionController.joinSession);
 // Leave a session (attendance)
 router.post('/leave', auth, sessionController.leaveSession);
 
+// Create a session
 router.post('/create', auth, sessionController.createSession);
+// End a session
 router.post('/end', auth, sessionController.endSession);
+// Validate a session
 router.post('/validate', sessionController.validateSession);
+// List sessions
 router.get('/list', auth, sessionController.listSessions);
+// Update meeting link
 router.post('/update-meeting-link', auth, sessionController.updateMeetingLink);
 
-module.exports = router;
+export default router;

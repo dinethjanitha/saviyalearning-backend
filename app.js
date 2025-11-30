@@ -25,7 +25,6 @@ app.get('/', (req, res) => {
   res.json({ message: 'Peer-to-peer education system backend is running.' });
 });
 
-
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
@@ -34,6 +33,7 @@ import resourceRoutes from './routes/resourceRoutes.js';
 import activityLogRoutes from './routes/activityLogRoutes.js';
 import resourceAnalyticsRoutes from './routes/resourceAnalyticsRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);

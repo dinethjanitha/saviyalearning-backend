@@ -1,5 +1,9 @@
+import Session from '../models/Session.js';
+import User from '../models/User.js';
+import ActivityLog from '../models/ActivityLog.js';
+
 // User joins a session (attendance)
-exports.joinSession = async (req, res) => {
+export const joinSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const userId = req.user._id;
@@ -23,7 +27,7 @@ exports.joinSession = async (req, res) => {
 };
 
 // User leaves a session (attendance)
-exports.leaveSession = async (req, res) => {
+export const leaveSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const userId = req.user._id;
@@ -45,13 +49,9 @@ exports.leaveSession = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
-// backend/controllers/sessionController.js
-const Session = require('../models/Session');
-const User = require('../models/User');
-const ActivityLog = require('../models/ActivityLog');
 
 // Create a new session (on login)
-exports.createSession = async (req, res) => {
+export const createSession = async (req, res) => {
   try {
     const { userId, userAgent, ip, meetingLink } = req.body;
     const session = new Session({
@@ -76,7 +76,7 @@ exports.createSession = async (req, res) => {
 };
 
 // Update meeting link for a session
-exports.updateMeetingLink = async (req, res) => {
+export const updateMeetingLink = async (req, res) => {
   try {
     const { sessionId, meetingLink } = req.body;
     const session = await Session.findById(sessionId);
@@ -96,7 +96,7 @@ exports.updateMeetingLink = async (req, res) => {
 };
 
 // End a session (on logout)
-exports.endSession = async (req, res) => {
+export const endSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const session = await Session.findById(sessionId);
@@ -117,7 +117,7 @@ exports.endSession = async (req, res) => {
 };
 
 // Validate a session (check if active)
-exports.validateSession = async (req, res) => {
+export const validateSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const session = await Session.findById(sessionId);
@@ -131,7 +131,7 @@ exports.validateSession = async (req, res) => {
 };
 
 // List sessions for a user (admin or self)
-exports.listSessions = async (req, res) => {
+export const listSessions = async (req, res) => {
   try {
     const { userId } = req.query;
     const sessions = await Session.find({ user: userId }).sort({ createdAt: -1 });

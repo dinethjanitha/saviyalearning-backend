@@ -1,5 +1,6 @@
 import ActivityLog from '../models/ActivityLog.js';
 import bcrypt from 'bcryptjs';
+import User from '../models/User.js';
 // Ban user (admin)
 export const banUser = async (req, res) => {
   try {
@@ -136,12 +137,14 @@ export const changeUserRole = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
-import User from '../models/User.js';
 
 // Get current user's profile
 export const getProfile = async (req, res) => {
+  console.log("req.user._id")
   try {
-    const user = await User.findById(req.user.userId).select('-passwordHash');
+    console.log("req.user._id")
+    console.log(req.user._id)
+    const user = await User.findById(req.user._id).select('-passwordHash');
     if (!user) return res.status(404).json({ message: 'User not found.' });
     res.json(user);
   } catch (err) {
@@ -153,7 +156,7 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const updates = req.body;
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found.' });
     const oldProfile = { ...user.profile };
     if (updates.profile) user.profile = updates.profile;
