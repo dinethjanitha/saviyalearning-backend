@@ -7,7 +7,7 @@ export const updateResource = async (req, res) => {
     if (!resource) return res.status(404).json({ message: 'Resource not found.' });
     // Only uploader or admin can update
     const isUploader = resource.uploadedBy.equals(req.user._id);
-    const isAdmin = req.user && ['admin', 'superadmin'].includes(req.user.role);
+    const isAdmin = req.user && req.user.role === 'admin';
     if (!isUploader && !isAdmin) {
       return res.status(403).json({ message: 'Not authorized.' });
     }
@@ -34,7 +34,7 @@ export const deleteResource = async (req, res) => {
     if (!resource) return res.status(404).json({ message: 'Resource not found.' });
     // Only uploader or admin can delete
     const isUploader = resource.uploadedBy.equals(req.user._id);
-    const isAdmin = req.user && ['admin', 'superadmin'].includes(req.user.role);
+    const isAdmin = req.user && req.user.role === 'admin';
     if (!isUploader && !isAdmin) {
       return res.status(403).json({ message: 'Not authorized.' });
     }

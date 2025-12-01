@@ -15,15 +15,34 @@ export const initializeSocket = (server) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('disconnect', () => {
-      console.log('User disconnected:', socket.id);
+    // Join a group room
+    socket.on('join-group', (groupId) => {
+      socket.join(`group-${groupId}`);
+      console.log(`Socket ${socket.id} joined group-${groupId}`);
     });
 
-    // Add your socket event handlers here
-    socket.on('message', (data) => {
-      console.log('Message received:', data);
-      // Broadcast to all clients
-      io.emit('message', data);
+    // Leave a group room
+    socket.on('leave-group', (groupId) => {
+      socket.leave(`group-${groupId}`);
+      console.log(`Socket ${socket.id} left group-${groupId}`);
+    });
+
+    // Typing indicator
+    socket.on('typing', (data) => {
+      socket.to(`group-${data.groupId}`).emit('user-typing', {
+        userId: data.userId,
+        userName: data.userName,
+      });
+    });
+
+    socket.on('stop-typing', (data) => {
+      socket.to(`group-${data.groupId}`).emit('user-stop-typing', {
+        userId: data.userId,
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
     });
   });
 

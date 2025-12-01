@@ -8,6 +8,9 @@ const chatMessageSchema = new mongoose.Schema({
   fileUrl: String, // For file/image attachments
   fileName: String,
   fileSize: Number,
+  resourceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resource' }, // For resource attachments
+  resourceLink: String, // Store resource link for quick access
+  replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatMessage' }, // For reply functionality
   edited: { type: Boolean, default: false },
   editedAt: Date,
   timestamp: { type: Date, default: Date.now },

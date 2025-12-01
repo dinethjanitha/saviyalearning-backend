@@ -14,17 +14,24 @@ export const createResourceRequest = async (req, res) => {
       return res.status(400).json({ message: 'Title and description are required.' });
     }
 
-    const resourceRequest = await ResourceRequest.create({
+    // Convert empty string to undefined for optional groupId
+    const requestData = {
       requesterId,
       title,
       description,
       subject,
       topic,
       type,
-      groupId,
       status: 'open',
       createdAt: new Date(),
-    });
+    };
+    
+    // Only add groupId if it's a valid non-empty string
+    if (groupId && groupId.trim() !== '') {
+      requestData.groupId = groupId;
+    }
+
+    const resourceRequest = await ResourceRequest.create(requestData);
 
     const populatedRequest = await ResourceRequest.findById(resourceRequest._id)
       .populate('requesterId', 'email profile.name profile.avatar');

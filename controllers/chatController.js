@@ -1,23 +1,25 @@
 import ChatMessage from '../models/ChatMessage.js';
 import LearningGroup from '../models/LearningGroup.js';
 import ActivityLog from '../models/ActivityLog.js';
+import { getIO } from '../services/socketService.js';
 
 // Send a message to a group chat
 export const sendMessage = async (req, res) => {
   try {
-    const { groupId, message, type = 'text' } = req.body;
+    const { groupId, message, type = 'text', resourceId, resourceLink, replyTo } = req.body;
     const userId = req.user._id;
 
     if (!groupId || !message) {
       return res.status(400).json({ message: 'GroupId and message are required.' });
     }
 
-    // Check if user is a member of the group
+    // Check if user is a member of the group (admins bypass this check)
     const group = await LearningGroup.findById(groupId);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
 
+    const isAdmin = req.user.role === 'admin';
     const isMember = group.members.some(m => m.userId.equals(userId));
-    if (!isMember) {
+    if (!isAdmin && !isMember) {
       return res.status(403).json({ message: 'You are not a member of this group.' });
     }
 
@@ -27,12 +29,20 @@ export const sendMessage = async (req, res) => {
       userId,
       message,
       type,
+      resourceId: resourceId || undefined,
+      resourceLink: resourceLink || undefined,
+      replyTo: replyTo || undefined,
       timestamp: new Date(),
     });
 
-    // Populate user details
+    // Populate user details and resource if attached
     const populatedMessage = await ChatMessage.findById(chatMessage._id)
-      .populate('userId', 'email profile.name profile.avatar');
+      .populate('userId', 'email profile.name profile.avatar')
+      .populate('resourceId', 'title type link uploadedBy')
+      .populate({
+        path: 'replyTo',
+        populate: { path: 'userId', select: 'email profile.name profile.avatar' }
+      });
 
     // Log activity
     await ActivityLog.create({
@@ -40,6 +50,14 @@ export const sendMessage = async (req, res) => {
       actionType: 'chat_message_sent',
       details: { groupId, messageId: chatMessage._id },
     });
+
+    // Emit to group room via Socket.io
+    try {
+      const io = getIO();
+      io.to(`group-${groupId}`).emit('new-message', populatedMessage);
+    } catch (err) {
+      console.log('Socket.io not available:', err.message);
+    }
 
     res.status(201).json({ success: true, message: populatedMessage });
   } catch (err) {
@@ -55,12 +73,13 @@ export const getMessages = async (req, res) => {
     const { page = 1, limit = 50, before } = req.query;
     const userId = req.user._id;
 
-    // Check if user is a member of the group
+    // Check if user is a member of the group (admins bypass this check)
     const group = await LearningGroup.findById(groupId);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
 
+    const isAdmin = req.user.role === 'admin';
     const isMember = group.members.some(m => m.userId.equals(userId));
-    if (!isMember) {
+    if (!isAdmin && !isMember) {
       return res.status(403).json({ message: 'You are not a member of this group.' });
     }
 
@@ -75,7 +94,12 @@ export const getMessages = async (req, res) => {
       .sort({ timestamp: -1 })
       .skip((parseInt(page) - 1) * parseInt(limit))
       .limit(parseInt(limit))
-      .populate('userId', 'email profile.name profile.avatar');
+      .populate('userId', 'email profile.name profile.avatar')
+      .populate('resourceId', 'title type link uploadedBy')
+      .populate({
+        path: 'replyTo',
+        populate: { path: 'userId', select: 'email profile.name profile.avatar' }
+      });
 
     const total = await ChatMessage.countDocuments({ groupId });
 

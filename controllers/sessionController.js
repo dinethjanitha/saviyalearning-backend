@@ -8,13 +8,28 @@ export const joinSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const userId = req.user._id;
+    console.log('Join session request:', { sessionId, userId: userId.toString() });
+    
     const session = await Session.findById(sessionId);
-    if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    if (!session) {
+      console.log('Session not found:', sessionId);
+      return res.status(404).json({ success: false, error: 'Session not found' });
+    }
+    
+    console.log('Session found:', { id: session._id, title: session.title, attendees: session.attendees.length });
+    
     // Prevent duplicate join
     const alreadyJoined = session.attendees.find(a => a.userId.toString() === userId.toString() && !a.leftAt);
-    if (alreadyJoined) return res.status(400).json({ success: false, error: 'User already joined' });
+    if (alreadyJoined) {
+      console.log('User already joined');
+      return res.status(400).json({ success: false, error: 'User already joined' });
+    }
+    
     session.attendees.push({ userId, joinedAt: new Date() });
     await session.save();
+    
+    console.log('User joined successfully, new attendee count:', session.attendees.length);
+    
     await ActivityLog.create({
       userId: req.user._id,
       actionType: 'session_joined',
@@ -23,6 +38,7 @@ export const joinSession = async (req, res) => {
     });
     res.json({ success: true, session });
   } catch (err) {
+    console.error('Join session error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -57,25 +73,38 @@ export const leaveSession = async (req, res) => {
   }
 };
 
-// Create a new session (on login)
+// Create a new learning session
 export const createSession = async (req, res) => {
   try {
-    const { userId, userAgent, ip, meetingLink } = req.body;
+    const { title, groupId, scheduledAt, duration, meetingLink } = req.body;
+    
+    if (!title || !groupId || !scheduledAt || !duration) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Title, groupId, scheduledAt, and duration are required' 
+      });
+    }
+
     const session = new Session({
-      user: userId,
-      userAgent: userAgent || req.headers['user-agent'],
-      ip: ip || req.ip,
+      title,
+      groupId,
+      teacherId: req.user._id,
+      scheduledAt: new Date(scheduledAt),
+      duration,
       meetingLink,
+      status: 'scheduled',
       createdAt: new Date(),
-      isActive: true,
     });
+    
     await session.save();
+    
     await ActivityLog.create({
       userId: req.user._id,
       actionType: 'session_created',
-      details: { sessionId: session._id, ip: session.ip, meetingLink: session.meetingLink },
+      details: { sessionId: session._id, title, groupId },
       timestamp: new Date(),
     });
+    
     res.status(201).json({ success: true, session });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -102,6 +131,49 @@ export const updateMeetingLink = async (req, res) => {
   }
 };
 
+// Update session details (teacher only)
+export const updateSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { title, scheduledAt, duration, meetingLink } = req.body;
+    
+    const session = await Session.findById(sessionId);
+    if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    
+    // Check if user is the teacher or admin
+    const isTeacher = session.teacherId.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isTeacher && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Only the teacher or admin can update this session' });
+    }
+    
+    // Only allow updates for scheduled sessions
+    if (session.status !== 'scheduled') {
+      return res.status(400).json({ success: false, error: 'Can only update scheduled sessions' });
+    }
+    
+    // Update fields
+    if (title) session.title = title;
+    if (scheduledAt) session.scheduledAt = scheduledAt;
+    if (duration) session.duration = duration;
+    if (meetingLink !== undefined) session.meetingLink = meetingLink;
+    
+    await session.save();
+    
+    await ActivityLog.create({
+      userId: req.user._id,
+      actionType: 'session_updated',
+      details: { sessionId: session._id, updates: { title, scheduledAt, duration, meetingLink } },
+      timestamp: new Date(),
+    });
+    
+    res.json({ success: true, session });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 
 // Start a session (set status to 'ongoing')
 export const startSession = async (req, res) => {
@@ -109,7 +181,18 @@ export const startSession = async (req, res) => {
     const { sessionId } = req.body;
     const session = await Session.findById(sessionId);
     if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    
+    // Check if user is the teacher or admin
+    const isTeacher = session.teacherId.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isTeacher && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Only the teacher or admin can start this session' });
+    }
+    
     if (session.status === 'ongoing') return res.status(400).json({ success: false, error: 'Session already started' });
+    if (session.status !== 'scheduled') return res.status(400).json({ success: false, error: 'Can only start scheduled sessions' });
+    
     session.status = 'ongoing';
     session.startedAt = new Date();
     await session.save();
@@ -125,12 +208,23 @@ export const startSession = async (req, res) => {
   }
 };
 
-// End a session (on logout)
+// End a session
 export const endSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const session = await Session.findById(sessionId);
     if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    
+    // Check if user is the teacher or admin
+    const isTeacher = session.teacherId.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isTeacher && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Only the teacher or admin can end this session' });
+    }
+    
+    if (session.status !== 'ongoing') return res.status(400).json({ success: false, error: 'Can only end ongoing sessions' });
+    
     session.status = 'completed';
     session.endedAt = new Date();
     await session.save();
@@ -163,8 +257,27 @@ export const validateSession = async (req, res) => {
 // List sessions for a user (admin or self)
 export const listSessions = async (req, res) => {
   try {
-    const { userId } = req.query;
-    const sessions = await Session.find({ user: userId }).sort({ createdAt: -1 });
+    const { userId, groupId } = req.query;
+    const query = {};
+    
+    if (userId) {
+      // Get sessions where user is teacher or attendee
+      query.$or = [
+        { teacherId: userId },
+        { 'attendees.userId': userId }
+      ];
+    }
+    
+    if (groupId) {
+      query.groupId = groupId;
+    }
+    
+    const sessions = await Session.find(query)
+      .sort({ scheduledAt: -1 })
+      .populate('teacherId', 'email profile')
+      .populate('groupId', 'grade subject topic')
+      .populate('attendees.userId', 'email profile');
+      
     res.json({ success: true, sessions });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -177,6 +290,15 @@ export const deleteSession = async (req, res) => {
     const { sessionId } = req.body;
     const session = await Session.findById(sessionId);
     if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    
+    // Check if user is the teacher or admin
+    const isTeacher = session.teacherId.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isTeacher && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Only the teacher or admin can delete this session' });
+    }
+    
     await session.deleteOne();
     await ActivityLog.create({
       userId: req.user ? req.user._id : undefined,
@@ -301,24 +423,26 @@ export const recentSessionsAnalytics = async (req, res) => {
 // Search/filter sessions
 export const searchSessions = async (req, res) => {
   try {
-    const { status, userId, fromDate, toDate, isActive, limit = 20, page = 1 } = req.query;
+    const { status, groupId, teacherId, fromDate, toDate, limit = 20, page = 1 } = req.query;
     const query = {};
 
     if (status) query.status = status;
-    if (userId) query.user = userId;
-    if (isActive !== undefined) query.isActive = isActive === 'true';
+    if (groupId) query.groupId = groupId;
+    if (teacherId) query.teacherId = teacherId;
     
     if (fromDate || toDate) {
-      query.createdAt = {};
-      if (fromDate) query.createdAt.$gte = new Date(fromDate);
-      if (toDate) query.createdAt.$lte = new Date(toDate);
+      query.scheduledAt = {};
+      if (fromDate) query.scheduledAt.$gte = new Date(fromDate);
+      if (toDate) query.scheduledAt.$lte = new Date(toDate);
     }
 
     const sessions = await Session.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ scheduledAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
-      .populate('user', 'email profile.name');
+      .populate('teacherId', 'email profile')
+      .populate('groupId', 'grade subject topic')
+      .populate('attendees.userId', 'email profile');
 
     const total = await Session.countDocuments(query);
 

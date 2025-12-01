@@ -27,6 +27,8 @@ router.get('/list', auth, sessionController.listSessions);
 router.get('/search', auth, sessionController.searchSessions);
 // Get session attendees
 router.get('/:id/attendees', auth, sessionController.getSessionAttendees);
+// Update session details (teacher only)
+router.put('/:sessionId', auth, sessionController.updateSession);
 // Update meeting link
 router.post('/update-meeting-link', auth, sessionController.updateMeetingLink);
 

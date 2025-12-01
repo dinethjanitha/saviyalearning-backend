@@ -145,6 +145,44 @@ export const createGroup = async (req, res) => {
   }
 };
 
+// Update group (owner or group admin only)
+export const updateGroup = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const userId = req.user._id;
+    const { description, whatsappLink, maxMembers, groupType } = req.body;
+    
+    const group = await LearningGroup.findById(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+    
+    // Check if user is owner, group admin, or system admin
+    const isSystemAdmin = req.user.role === 'admin';
+    const member = group.members.find(m => m.userId.equals(userId));
+    const isOwnerOrAdmin = member && (member.role === 'owner' || member.role === 'admin');
+    
+    if (!isSystemAdmin && !isOwnerOrAdmin) {
+      return res.status(403).json({ message: 'Only group owner or admins can update the group.' });
+    }
+    
+    // Update allowed fields
+    if (description !== undefined) group.description = description;
+    if (whatsappLink !== undefined) group.whatsappLink = whatsappLink;
+    if (maxMembers !== undefined) group.maxMembers = maxMembers;
+    if (groupType !== undefined) group.groupType = groupType;
+    
+    await group.save();
+    await ActivityLog.create({ 
+      userId: req.user._id, 
+      actionType: 'update_group', 
+      details: { group: group._id, updates: { description, whatsappLink, maxMembers, groupType } } 
+    });
+    
+    res.json(group);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
 // Join a group
 export const joinGroup = async (req, res) => {
   try {

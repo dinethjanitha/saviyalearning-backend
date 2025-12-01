@@ -2,6 +2,7 @@ import express from 'express';
 
 import {
   createGroup,
+  updateGroup,
   joinGroup,
   leaveGroup,
   searchGroups,
@@ -33,6 +34,8 @@ router.patch('/:id/members/:userId/role', auth, isAdmin, adminChangeMemberRole);
 
 // Create group (auth required)
 router.post('/', auth, createGroup);
+// Update group (owner/admin only)
+router.put('/:id/update', auth, updateGroup);
 // Join group
 router.post('/:id/join', auth, joinGroup);
 // Leave group

@@ -6,8 +6,11 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     enum: [
       'group_invite',
+      'group_created',
       'group_joined',
       'group_left',
+      'member_joined',
+      'member_left',
       'resource_added',
       'session_scheduled',
       'session_reminder',
