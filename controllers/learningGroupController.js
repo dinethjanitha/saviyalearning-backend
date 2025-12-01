@@ -242,7 +242,7 @@ export const leaveGroup = async (req, res) => {
 // Search groups by grade, subject, topic (partial match)
 export const searchGroups = async (req, res) => {
   try {
-    const { grade, subject, topic, q } = req.query;
+    const { grade, subject, topic, q, page = 1, limit = 50 } = req.query;
     const filter = {};
     if (grade) filter.grade = grade;
     if (subject) filter.subject = subject;
@@ -255,8 +255,23 @@ export const searchGroups = async (req, res) => {
         { description: new RegExp(q, 'i') }
       ];
     }
-    const groups = await LearningGroup.find(filter).limit(50);
-    res.json(groups);
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const groups = await LearningGroup.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('createdBy', 'profile.name email');
+    const total = await LearningGroup.countDocuments(filter);
+    const hasMore = (pageNum * limitNum) < total;
+    res.json({ 
+      groups, 
+      total, 
+      page: pageNum, 
+      limit: limitNum,
+      hasMore,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -279,8 +294,24 @@ export const getGroup = async (req, res) => {
 export const listMyGroups = async (req, res) => {
   try {
     const userId = req.user._id;
-    const groups = await LearningGroup.find({ 'members.userId': userId });
-    res.json(groups);
+    const { page = 1, limit = 50 } = req.query;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const groups = await LearningGroup.find({ 'members.userId': userId })
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('createdBy', 'profile.name email');
+    const total = await LearningGroup.countDocuments({ 'members.userId': userId });
+    const hasMore = (pageNum * limitNum) < total;
+    res.json({ 
+      groups, 
+      total, 
+      page: pageNum, 
+      limit: limitNum,
+      hasMore,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

@@ -140,7 +140,7 @@ export const addResource = async (req, res) => {
 export const getResources = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { page = 1, limit = 20, q } = req.query;
+    const { page = 1, limit = 50, q } = req.query;
     // Check if user is a member of the group
     const group = await LearningGroup.findById(groupId);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
@@ -154,11 +154,23 @@ export const getResources = async (req, res) => {
         { link: new RegExp(q, 'i') }
       ];
     }
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
     const resources = await Resource.find(filter)
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .limit(parseInt(limit));
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('uploadedBy', 'profile.name email');
     const total = await Resource.countDocuments(filter);
-    res.json({ resources, total, page: parseInt(page), limit: parseInt(limit) });
+    const hasMore = (pageNum * limitNum) < total;
+    res.json({ 
+      resources, 
+      total, 
+      page: pageNum, 
+      limit: limitNum,
+      hasMore,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
