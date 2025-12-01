@@ -1,7 +1,9 @@
 import Session from '../models/Session.js';
 import User from '../models/User.js';
+import LearningGroup from '../models/LearningGroup.js';
 import ActivityLog from '../models/ActivityLog.js';
 import { createNotification } from './notificationController.js';
+import { sendMail } from '../services/mailService.js';
 
 // User joins a session (attendance)
 export const joinSession = async (req, res) => {
@@ -104,6 +106,57 @@ export const createSession = async (req, res) => {
       details: { sessionId: session._id, title, groupId },
       timestamp: new Date(),
     });
+    
+    // Send email notification to all group members
+    try {
+      const group = await LearningGroup.findById(groupId).populate('members.userId', 'email profile.name');
+      if (group && group.members.length > 0) {
+        const teacher = await User.findById(req.user._id).select('profile.name email');
+        const teacherName = teacher?.profile?.name || teacher?.email || 'A teacher';
+        const scheduledDate = new Date(scheduledAt).toLocaleString('en-US', {
+          dateStyle: 'full',
+          timeStyle: 'short'
+        });
+        
+        // Send email to each member (except the teacher)
+        const emailPromises = group.members
+          .filter(member => member.userId && member.userId._id.toString() !== req.user._id.toString())
+          .map(async (member) => {
+            const memberEmail = member.userId.email;
+            const memberName = member.userId.profile?.name || memberEmail;
+            
+            try {
+              await sendMail({
+                to: memberEmail,
+                subject: `New Session Scheduled: ${title}`,
+                html: `
+                  <h2>🎓 New Learning Session Scheduled!</h2>
+                  <p>Hi ${memberName},</p>
+                  <p><strong>${teacherName}</strong> has scheduled a new session in your learning group:</p>
+                  <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    <h3 style="margin-top: 0; color: #1f2937;">${title}</h3>
+                    <p style="margin: 5px 0;"><strong>Group:</strong> ${group.grade} - ${group.subject} - ${group.topic}</p>
+                    <p style="margin: 5px 0;"><strong>When:</strong> ${scheduledDate}</p>
+                    <p style="margin: 5px 0;"><strong>Duration:</strong> ${duration} minutes</p>
+                    ${meetingLink ? `<p style="margin: 5px 0;"><strong>Meeting Link:</strong> <a href="${meetingLink}">${meetingLink}</a></p>` : ''}
+                  </div>
+                  <p>Don't forget to join the session!</p>
+                  <p style="margin-top: 20px; color: #6b7280; font-size: 12px;">You're receiving this email because you're a member of this learning group.</p>
+                `,
+                text: `New Session Scheduled: ${title}\n\nScheduled by: ${teacherName}\nGroup: ${group.grade} - ${group.subject} - ${group.topic}\nWhen: ${scheduledDate}\nDuration: ${duration} minutes${meetingLink ? `\nMeeting Link: ${meetingLink}` : ''}`
+              });
+              console.log(`✅ Session notification email sent to ${memberEmail}`);
+            } catch (emailError) {
+              console.error(`❌ Failed to send email to ${memberEmail}:`, emailError.message);
+            }
+          });
+        
+        await Promise.allSettled(emailPromises);
+      }
+    } catch (notifError) {
+      console.error('Error sending session notification emails:', notifError);
+      // Don't fail the request if email fails
+    }
     
     res.status(201).json({ success: true, session });
   } catch (err) {

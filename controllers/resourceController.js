@@ -52,7 +52,9 @@ export const deleteResource = async (req, res) => {
 
 import Resource from '../models/Resource.js';
 import LearningGroup from '../models/LearningGroup.js';
+import User from '../models/User.js';
 import ActivityLog from '../models/ActivityLog.js';
+import { sendMail } from '../services/mailService.js';
 
 // Add a new resource (Google Drive/shared link) to a group
 export const addResource = async (req, res) => {
@@ -81,6 +83,53 @@ export const addResource = async (req, res) => {
       actionType: 'resource_create',
       details: { resourceId: resource._id, groupId, title },
     });
+    
+    // Send email notification to all group members
+    try {
+      const groupWithMembers = await LearningGroup.findById(groupId).populate('members.userId', 'email profile.name');
+      if (groupWithMembers && groupWithMembers.members.length > 0) {
+        const uploader = await User.findById(req.user._id).select('profile.name email');
+        const uploaderName = uploader?.profile?.name || uploader?.email || 'A member';
+        
+        // Send email to each member (except the uploader)
+        const emailPromises = groupWithMembers.members
+          .filter(member => member.userId && member.userId._id.toString() !== req.user._id.toString())
+          .map(async (member) => {
+            const memberEmail = member.userId.email;
+            const memberName = member.userId.profile?.name || memberEmail;
+            
+            try {
+              await sendMail({
+                to: memberEmail,
+                subject: `New Resource Added: ${title}`,
+                html: `
+                  <h2>📚 New Resource Available!</h2>
+                  <p>Hi ${memberName},</p>
+                  <p><strong>${uploaderName}</strong> has shared a new resource in your learning group:</p>
+                  <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    <h3 style="margin-top: 0; color: #1f2937;">${title}</h3>
+                    <p style="margin: 5px 0;"><strong>Group:</strong> ${groupWithMembers.grade} - ${groupWithMembers.subject} - ${groupWithMembers.topic}</p>
+                    ${description ? `<p style="margin: 5px 0;"><strong>Description:</strong> ${description}</p>` : ''}
+                    <p style="margin: 10px 0;"><a href="${link}" style="background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Resource</a></p>
+                  </div>
+                  <p>Check it out and enhance your learning!</p>
+                  <p style="margin-top: 20px; color: #6b7280; font-size: 12px;">You're receiving this email because you're a member of this learning group.</p>
+                `,
+                text: `New Resource Added: ${title}\n\nShared by: ${uploaderName}\nGroup: ${groupWithMembers.grade} - ${groupWithMembers.subject} - ${groupWithMembers.topic}${description ? `\nDescription: ${description}` : ''}\nLink: ${link}`
+              });
+              console.log(`✅ Resource notification email sent to ${memberEmail}`);
+            } catch (emailError) {
+              console.error(`❌ Failed to send email to ${memberEmail}:`, emailError.message);
+            }
+          });
+        
+        await Promise.allSettled(emailPromises);
+      }
+    } catch (notifError) {
+      console.error('Error sending resource notification emails:', notifError);
+      // Don't fail the request if email fails
+    }
+    
     res.status(201).json(resource);
   } catch (err) {
     res.status(500).json({ message: err.message });
