@@ -140,10 +140,7 @@ export const changeUserRole = async (req, res) => {
 
 // Get current user's profile
 export const getProfile = async (req, res) => {
-  console.log("req.user._id")
   try {
-    console.log("req.user._id")
-    console.log(req.user._id)
     const user = await User.findById(req.user._id).select('-passwordHash');
     if (!user) return res.status(404).json({ message: 'User not found.' });
     res.json(user);

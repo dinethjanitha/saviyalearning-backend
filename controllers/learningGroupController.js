@@ -126,10 +126,6 @@ export const createGroup = async (req, res) => {
       maxMembers,
       groupType
     });
-    console.log(req.user._id)
-    console.log(req.user._id)
-    console.log(req.user._id)
-    console.log(req.user._id)
     await ActivityLog.create({ userId: req.user._id, actionType: 'create_group', details: { group: group._id } });
     res.status(201).json(group);
   } catch (err) {

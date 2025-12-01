@@ -15,12 +15,6 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.use((req , res , next) => {
-  console.log(req.body)
-  console.log(req.headers)
-  next()
-})
-
 // Health check route
 app.get('/', (req, res) => {
   res.json({ message: 'Peer-to-peer education system backend is running.' });

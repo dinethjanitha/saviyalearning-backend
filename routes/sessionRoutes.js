@@ -39,4 +39,12 @@ router.post('/admin/delete', auth, isAdmin, sessionController.adminDeleteSession
 // Update session status (admin)
 router.post('/admin/update-status', auth, isAdmin, sessionController.adminUpdateSessionStatus);
 
+// --- Session Analytics (Admin) ---
+// Get session status counts
+router.get('/analytics/status-counts', auth, isAdmin, sessionController.sessionStatusCounts);
+// Get session attendance stats
+router.get('/analytics/attendance', auth, isAdmin, sessionController.sessionAttendanceStats);
+// Get recent sessions (last 7 days)
+router.get('/analytics/recent', auth, isAdmin, sessionController.recentSessionsAnalytics);
+
 export default router;

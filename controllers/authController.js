@@ -51,7 +51,7 @@ export const signup = async (req, res) => {
     });
     res.status(201).json({ message: 'User registered. Verification email sent.' });
   } catch (err) {
-    console.log(err)
+    console.error('Signup error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
@@ -118,49 +118,64 @@ export const refreshToken = async (req, res) => {
 };
 
 export const requestPasswordReset = async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) return res.status(404).json({ message: 'User not found.' });
-  const token = crypto.randomBytes(32).toString('hex');
-  resetTokens.set(token, { userId: user._id, expires: Date.now() + 3600000 }); // 1 hour
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-  await sendMail({
-    to: user.email,
-    subject: 'Password Reset Request',
-    html: `<p>Hi ${user.profile.name},<br>Click <a href="${resetUrl}">here</a> to reset your password. This link is valid for 1 hour.</p>`,
-  });
-  res.json({ message: 'Password reset link sent to your email.' });
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    const token = crypto.randomBytes(32).toString('hex');
+    resetTokens.set(token, { userId: user._id, expires: Date.now() + 3600000 }); // 1 hour
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    await sendMail({
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: `<p>Hi ${user.profile.name},<br>Click <a href="${resetUrl}">here</a> to reset your password. This link is valid for 1 hour.</p>`,
+    });
+    res.json({ message: 'Password reset link sent to your email.' });
+  } catch (err) {
+    console.error('Password reset request error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 };
 // Email verification endpoint
 export const verifyEmail = async (req, res) => {
-  const { token } = req.query;
-  if (!token) {
-    return res.status(400).json({ message: 'Verification token is required.' });
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ message: 'Verification token is required.' });
+    }
+    const tokenDoc = await EmailVerificationToken.findOne({ token });
+    if (!tokenDoc || tokenDoc.expiresAt < new Date()) {
+      return res.status(400).json({ message: 'Invalid or expired verification token.' });
+    }
+    const user = await User.findById(tokenDoc.userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    user.verified = true;
+    await user.save();
+    await EmailVerificationToken.deleteOne({ _id: tokenDoc._id });
+    res.json({ message: 'Email verified successfully.' });
+  } catch (err) {
+    console.error('Email verification error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
-  const tokenDoc = await EmailVerificationToken.findOne({ token });
-  if (!tokenDoc || tokenDoc.expiresAt < new Date()) {
-    return res.status(400).json({ message: 'Invalid or expired verification token.' });
-  }
-  const user = await User.findById(tokenDoc.userId);
-  if (!user) return res.status(404).json({ message: 'User not found.' });
-  user.verified = true;
-  await user.save();
-  await EmailVerificationToken.deleteOne({ _id: tokenDoc._id });
-  res.json({ message: 'Email verified successfully.' });
 };
 
 export const resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
-  const data = resetTokens.get(token);
-  if (!data || data.expires < Date.now()) {
-    return res.status(400).json({ message: 'Invalid or expired reset token.' });
+  try {
+    const { token, newPassword } = req.body;
+    const data = resetTokens.get(token);
+    if (!data || data.expires < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired reset token.' });
+    }
+    const user = await User.findById(data.userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    resetTokens.delete(token);
+    res.json({ message: 'Password reset successful.' });
+  } catch (err) {
+    console.error('Password reset error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
-  const user = await User.findById(data.userId);
-  if (!user) return res.status(404).json({ message: 'User not found.' });
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  await user.save();
-  resetTokens.delete(token);
-  res.json({ message: 'Password reset successful.' });
 };
 
 export const logout = (req, res) => {
