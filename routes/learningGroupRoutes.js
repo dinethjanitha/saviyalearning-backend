@@ -11,7 +11,10 @@ import {
   adminUpdateGroup,
   adminDeleteGroup,
   adminRemoveMember,
-  adminChangeMemberRole
+  adminChangeMemberRole,
+  updateMemberRole,
+  removeMember,
+  inviteUser
 } from '../controllers/learningGroupController.js';
 import { authenticateJWT as auth, isAdmin } from '../middleware/auth.js';
 
@@ -34,6 +37,12 @@ router.post('/', auth, createGroup);
 router.post('/:id/join', auth, joinGroup);
 // Leave group
 router.post('/:id/leave', auth, leaveGroup);
+// Invite user to group (owner/admin)
+router.post('/:id/invite', auth, inviteUser);
+// Update member role (owner only)
+router.patch('/:id/members/:userId/role', auth, updateMemberRole);
+// Remove member (owner only)
+router.delete('/:id/members/:userId', auth, removeMember);
 // Search groups
 router.get('/search', searchGroups);
 

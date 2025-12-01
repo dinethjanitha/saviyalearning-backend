@@ -104,6 +104,7 @@ export const adminChangeMemberRole = async (req, res) => {
 import LearningGroup from '../models/LearningGroup.js';
 import ActivityLog from '../models/ActivityLog.js';
 import mongoose from 'mongoose';
+import { createNotification } from './notificationController.js';
 
 // Create a new learning group (enforces Grade+Subject+Topic uniqueness)
 export const createGroup = async (req, res) => {
@@ -127,6 +128,17 @@ export const createGroup = async (req, res) => {
       groupType
     });
     await ActivityLog.create({ userId: req.user._id, actionType: 'create_group', details: { group: group._id } });
+    
+    // Send welcome notification to group creator
+    await createNotification(
+      createdBy,
+      'group_created',
+      'Group Created Successfully',
+      `Your learning group "${subject} - ${topic}" has been created successfully.`,
+      { groupId: group._id },
+      'medium'
+    );
+    
     res.status(201).json(group);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -149,6 +161,20 @@ export const joinGroup = async (req, res) => {
     group.members.push({ userId, role: 'member' });
     await group.save();
     await ActivityLog.create({ userId: userId, actionType: 'join_group', details: { group: group._id } });
+    
+    // Notify group owner and admins
+    const owner = group.members.find(m => m.role === 'owner');
+    if (owner && !owner.userId.equals(userId)) {
+      await createNotification(
+        owner.userId,
+        'member_joined',
+        'New Member Joined',
+        `A new member joined your group "${group.subject} - ${group.topic}"`,
+        { groupId: group._id, userId },
+        'low'
+      );
+    }
+    
     res.json({ message: 'Joined group.', group });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -221,3 +247,161 @@ export const listMyGroups = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+// Update member role (owner only)
+export const updateMemberRole = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const memberId = req.params.userId;
+    const { role } = req.body;
+    const userId = req.user._id;
+
+    if (!['member', 'moderator', 'admin'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid role.' });
+    }
+
+    const group = await LearningGroup.findById(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    // Check if user is owner
+    const isOwner = group.members.some(m => m.userId.equals(userId) && m.role === 'owner');
+    if (!isOwner) {
+      return res.status(403).json({ message: 'Only group owner can change member roles.' });
+    }
+
+    const member = group.members.find(m => m.userId.equals(memberId));
+    if (!member) return res.status(404).json({ message: 'User not a member.' });
+
+    if (member.role === 'owner') {
+      return res.status(400).json({ message: 'Cannot change owner role.' });
+    }
+
+    member.role = role;
+    await group.save();
+
+    await ActivityLog.create({
+      userId,
+      actionType: 'change_member_role',
+      details: { group: groupId, member: memberId, role }
+    });
+
+    // Notify the member
+    await createNotification(
+      memberId,
+      'role_changed',
+      'Your Role Was Updated',
+      `Your role in group "${group.subject} - ${group.topic}" has been changed to ${role}`,
+      { groupId, role },
+      'medium'
+    );
+
+    res.json({ message: 'Member role updated.', group });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Remove member (owner only)
+export const removeMember = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const memberId = req.params.userId;
+    const userId = req.user._id;
+
+    const group = await LearningGroup.findById(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    // Check if user is owner
+    const isOwner = group.members.some(m => m.userId.equals(userId) && m.role === 'owner');
+    if (!isOwner) {
+      return res.status(403).json({ message: 'Only group owner can remove members.' });
+    }
+
+    const member = group.members.find(m => m.userId.equals(memberId));
+    if (!member) return res.status(404).json({ message: 'User not a member.' });
+
+    if (member.role === 'owner') {
+      return res.status(400).json({ message: 'Cannot remove owner.' });
+    }
+
+    group.members = group.members.filter(m => !m.userId.equals(memberId));
+    await group.save();
+
+    await ActivityLog.create({
+      userId,
+      actionType: 'remove_member',
+      details: { group: groupId, member: memberId }
+    });
+
+    // Notify the removed member
+    await createNotification(
+      memberId,
+      'removed_from_group',
+      'Removed from Group',
+      `You have been removed from group "${group.subject} - ${group.topic}"`,
+      { groupId },
+      'high'
+    );
+
+    res.json({ message: 'Member removed.', group });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Invite user to group (owner/admin only)
+export const inviteUser = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const { userId: targetUserId, email } = req.body;
+    const userId = req.user._id;
+
+    const group = await LearningGroup.findById(groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    // Check if user is owner or admin
+    const member = group.members.find(m => m.userId.equals(userId));
+    if (!member || !['owner', 'admin'].includes(member.role)) {
+      return res.status(403).json({ message: 'Only owner or admin can invite users.' });
+    }
+
+    // Find target user
+    const User = (await import('../models/User.js')).default;
+    let targetUser;
+    if (targetUserId) {
+      targetUser = await User.findById(targetUserId);
+    } else if (email) {
+      targetUser = await User.findOne({ email });
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Check if already a member
+    if (group.members.some(m => m.userId.equals(targetUser._id))) {
+      return res.status(400).json({ message: 'User is already a member.' });
+    }
+
+    // Send invitation notification
+    await createNotification(
+      targetUser._id,
+      'group_invite',
+      'Group Invitation',
+      `You've been invited to join "${group.subject} - ${group.topic}"`,
+      { groupId, invitedBy: userId },
+      'high'
+    );
+
+    await ActivityLog.create({
+      userId,
+      actionType: 'invite_user',
+      details: { group: groupId, invitedUser: targetUser._id }
+    });
+
+    res.json({ message: 'Invitation sent.', user: { id: targetUser._id, email: targetUser.email, name: targetUser.profile.name } });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+

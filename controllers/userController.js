@@ -1,6 +1,9 @@
 import ActivityLog from '../models/ActivityLog.js';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import LearningGroup from '../models/LearningGroup.js';
+import Session from '../models/Session.js';
+import Resource from '../models/Resource.js';
 // Ban user (admin)
 export const banUser = async (req, res) => {
   try {
@@ -178,3 +181,85 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
+// Search users (for finding peers/mentors)
+export const searchUsers = async (req, res) => {
+  try {
+    const { q, skills, country, region, role, limit = 20 } = req.query;
+    const query = { status: 'active' }; // Only active users
+
+    if (q) {
+      query.$or = [
+        { 'profile.name': { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } },
+        { skills: { $regex: q, $options: 'i' } },
+      ];
+    }
+
+    if (skills) {
+      query.skills = { $regex: skills, $options: 'i' };
+    }
+
+    if (country) {
+      query['profile.country'] = { $regex: country, $options: 'i' };
+    }
+
+    if (region) {
+      query['profile.region'] = { $regex: region, $options: 'i' };
+    }
+
+    if (role) {
+      query.role = role;
+    }
+
+    const users = await User.find(query)
+      .select('email profile skills role createdAt')
+      .limit(Number(limit));
+
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Get user dashboard statistics
+export const getUserDashboard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get user's groups
+    const groups = await LearningGroup.find({ 'members.userId': userId });
+    const groupCount = groups.length;
+
+    // Get user's sessions
+    const sessionCount = await Session.countDocuments({ user: userId });
+    const activeSessions = await Session.countDocuments({ user: userId, isActive: true });
+
+    // Get user's resources
+    const resourceCount = await Resource.countDocuments({ uploadedBy: userId });
+
+    // Get user's recent activity
+    const recentActivity = await ActivityLog.find({ userId })
+      .sort({ timestamp: -1 })
+      .limit(10);
+
+    res.json({
+      statistics: {
+        groupCount,
+        sessionCount,
+        activeSessions,
+        resourceCount,
+      },
+      recentActivity,
+      groups: groups.map(g => ({
+        _id: g._id,
+        subject: g.subject,
+        topic: g.topic,
+        memberCount: g.members.length,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+

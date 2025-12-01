@@ -1,6 +1,7 @@
 import Session from '../models/Session.js';
 import User from '../models/User.js';
 import ActivityLog from '../models/ActivityLog.js';
+import { createNotification } from './notificationController.js';
 
 // User joins a session (attendance)
 export const joinSession = async (req, res) => {
@@ -292,6 +293,53 @@ export const recentSessionsAnalytics = async (req, res) => {
     const sessions = await Session.find({ createdAt: { $gte: since } })
       .sort({ createdAt: -1 });
     res.json({ success: true, sessions });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Search/filter sessions
+export const searchSessions = async (req, res) => {
+  try {
+    const { status, userId, fromDate, toDate, isActive, limit = 20, page = 1 } = req.query;
+    const query = {};
+
+    if (status) query.status = status;
+    if (userId) query.user = userId;
+    if (isActive !== undefined) query.isActive = isActive === 'true';
+    
+    if (fromDate || toDate) {
+      query.createdAt = {};
+      if (fromDate) query.createdAt.$gte = new Date(fromDate);
+      if (toDate) query.createdAt.$lte = new Date(toDate);
+    }
+
+    const sessions = await Session.find(query)
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
+      .populate('user', 'email profile.name');
+
+    const total = await Session.countDocuments(query);
+
+    res.json({ success: true, sessions, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Get session attendees
+export const getSessionAttendees = async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const session = await Session.findById(sessionId)
+      .populate('attendees.userId', 'email profile.name profile.avatar');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'Session not found' });
+    }
+
+    res.json({ success: true, attendees: session.attendees });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

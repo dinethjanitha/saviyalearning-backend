@@ -9,7 +9,9 @@ import { getProfile,
 	banUser,
 	suspendUser,
 	reactivateUser,
-	adminResetPassword
+	adminResetPassword,
+	searchUsers,
+	getUserDashboard
 } from '../controllers/userController.js';
 import { authenticateJWT } from '../middleware/auth.js';
 
@@ -28,6 +30,12 @@ router.get('/me', authenticateJWT, getProfile);
 
 // PUT /api/users/me - Update current user's profile
 router.put('/me', authenticateJWT, updateProfile);
+
+// GET /api/users/dashboard - Get user dashboard statistics
+router.get('/dashboard', authenticateJWT, getUserDashboard);
+
+// GET /api/users/search - Search users (public or authenticated)
+router.get('/search', authenticateJWT, searchUsers);
 
 // --- Admin User Management ---
 // GET /api/users - List/search users

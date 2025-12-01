@@ -23,6 +23,10 @@ router.post('/end', auth, sessionController.endSession);
 router.post('/validate', sessionController.validateSession);
 // List sessions
 router.get('/list', auth, sessionController.listSessions);
+// Search/filter sessions
+router.get('/search', auth, sessionController.searchSessions);
+// Get session attendees
+router.get('/:id/attendees', auth, sessionController.getSessionAttendees);
 // Update meeting link
 router.post('/update-meeting-link', auth, sessionController.updateMeetingLink);
 

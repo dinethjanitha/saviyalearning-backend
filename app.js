@@ -25,18 +25,28 @@ import userRoutes from './routes/userRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import learningGroupRoutes from './routes/learningGroupRoutes.js';
 import resourceRoutes from './routes/resourceRoutes.js';
+import resourceGroupRoutes from './routes/resourceGroupRoutes.js';
 import activityLogRoutes from './routes/activityLogRoutes.js';
 import resourceAnalyticsRoutes from './routes/resourceAnalyticsRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
+import resourceRequestRoutes from './routes/resourceRequestRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/groups', learningGroupRoutes);
 app.use('/api/resources', resourceRoutes);
+app.use('/api/resource-groups', resourceGroupRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/resource-analytics', resourceAnalyticsRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/resource-requests', resourceRequestRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/p2p_education';
