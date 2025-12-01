@@ -74,7 +74,7 @@ export const login = async (req, res) => {
     const accessToken = jwt.sign(
       { _id: user._id, role: user.role },
       process.env.JWT_SECRET || 'devsecret',
-      { expiresIn: '15m' }
+      { expiresIn: '7d' }
     );
     const refreshToken = jwt.sign(
       { _id: user._id, role: user.role },
@@ -109,7 +109,7 @@ export const refreshToken = async (req, res) => {
     const newAccessToken = jwt.sign(
       { _id: user._id, role: user.role },
       process.env.JWT_SECRET || 'devsecret',
-      { expiresIn: '15m' }
+      { expiresIn: '7d' }
     );
     res.json({ accessToken: newAccessToken });
   } catch (err) {

@@ -13,6 +13,8 @@ const sessionSchema = new mongoose.Schema({
     leftAt: Date,
   }],
   status: { type: String, enum: ['scheduled', 'ongoing', 'completed', 'cancelled'], default: 'scheduled' },
+  startedAt: Date,
+  endedAt: Date,
   createdAt: { type: Date, default: Date.now },
 });
 
