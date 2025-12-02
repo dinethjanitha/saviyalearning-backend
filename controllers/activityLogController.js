@@ -13,8 +13,25 @@ export const getActivityLogs = async (req, res) => {
       .sort({ timestamp: -1 })
       .skip((parseInt(page) - 1) * parseInt(limit))
       .limit(parseInt(limit))
-      .populate('userId', 'email role');
+      .populate('userId', 'email role profile');
     const total = await ActivityLog.countDocuments(filter);
+    res.json({ logs, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// User: Get own activity logs
+export const getMyActivityLogs = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const userId = req.user._id;
+    const logs = await ActivityLog.find({ userId })
+      .sort({ timestamp: -1 })
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('userId', 'email role profile');
+    const total = await ActivityLog.countDocuments({ userId });
     res.json({ logs, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) {
     res.status(500).json({ message: err.message });

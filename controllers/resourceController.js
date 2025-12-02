@@ -198,6 +198,22 @@ export const viewResource = async (req, res) => {
   }
 };
 
+// Get user's uploaded resources
+export const getMyResources = async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const resources = await Resource.find({ uploadedBy: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('groupId', 'subject topic');
+    const total = await Resource.countDocuments({ uploadedBy: req.user._id });
+    res.json({ resources, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // Admin: Delete a resource
 export const adminDeleteResource = async (req, res) => {
   try {

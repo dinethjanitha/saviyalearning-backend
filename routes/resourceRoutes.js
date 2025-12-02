@@ -1,6 +1,6 @@
 
 import express from 'express';
-import { addResource, getResources, viewResource, adminDeleteResource, updateResource, deleteResource } from '../controllers/resourceController.js';
+import { addResource, getResources, viewResource, adminDeleteResource, updateResource, deleteResource, getMyResources } from '../controllers/resourceController.js';
 import { authenticateJWT as auth, isAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -8,6 +8,8 @@ const router = express.Router();
 
 // Add a new resource to a group
 router.post('/', auth, addResource);
+// Get user's uploaded resources
+router.get('/my', auth, getMyResources);
 // List resources for a group
 router.get('/group/:groupId', auth, getResources);
 // View a resource (increments views count)
