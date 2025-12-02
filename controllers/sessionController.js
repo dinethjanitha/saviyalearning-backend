@@ -232,11 +232,11 @@ export const updateSession = async (req, res) => {
 export const startSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
-    const session = await Session.findById(sessionId);
+    const session = await Session.findById(sessionId).populate('groupId').populate('teacherId');
     if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
     
     // Check if user is the teacher or admin
-    const isTeacher = session.teacherId.toString() === req.user._id.toString();
+    const isTeacher = session.teacherId._id.toString() === req.user._id.toString();
     const isAdmin = req.user.role === 'admin';
     
     if (!isTeacher && !isAdmin) {
@@ -249,6 +249,63 @@ export const startSession = async (req, res) => {
     session.status = 'ongoing';
     session.startedAt = new Date();
     await session.save();
+    
+    // Send email notifications to all group members
+    try {
+      const group = await LearningGroup.findById(session.groupId._id).populate('members.userId');
+      if (group && group.members && group.members.length > 0) {
+        const teacherName = session.teacherId.profile?.name || session.teacherId.email;
+        const groupName = `${group.grade} - ${group.subject} - ${group.topic}`;
+        
+        // Send emails to all members
+        const emailPromises = group.members.map(async (member) => {
+          if (member.userId && member.userId.email) {
+            const memberName = member.userId.profile?.name || member.userId.email;
+            const emailSubject = `Session Started: ${session.title}`;
+            const emailHtml = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Session Started!</h2>
+                <p>Hi ${memberName},</p>
+                <p>A session has just started in your learning group:</p>
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin-top: 0; color: #1f2937;">${session.title}</h3>
+                  <p style="margin: 10px 0;"><strong>Group:</strong> ${groupName}</p>
+                  <p style="margin: 10px 0;"><strong>Teacher:</strong> ${teacherName}</p>
+                  <p style="margin: 10px 0;"><strong>Started At:</strong> ${new Date(session.startedAt).toLocaleString()}</p>
+                  ${session.duration ? `<p style="margin: 10px 0;"><strong>Duration:</strong> ${session.duration} minutes</p>` : ''}
+                </div>
+                ${session.meetingLink ? `
+                  <div style="margin: 20px 0;">
+                    <a href="${session.meetingLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Join Meeting Now</a>
+                  </div>
+                ` : ''}
+                <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                  This is an automated notification from SaviyaLearn - P2P Education Platform
+                </p>
+              </div>
+            `;
+            
+            try {
+              await sendMail({
+                to: member.userId.email,
+                subject: emailSubject,
+                html: emailHtml,
+              });
+              console.log(`Session start email sent to ${member.userId.email}`);
+            } catch (emailErr) {
+              console.error(`Failed to send email to ${member.userId.email}:`, emailErr);
+            }
+          }
+        });
+        
+        await Promise.allSettled(emailPromises);
+        console.log(`Session start notifications sent to ${group.members.length} members`);
+      }
+    } catch (emailError) {
+      console.error('Error sending session start emails:', emailError);
+      // Don't fail the request if emails fail
+    }
+    
     await ActivityLog.create({
       userId: req.user ? req.user._id : undefined,
       actionType: 'session_started',
