@@ -129,25 +129,18 @@ export const createSession = async (req, res) => {
               await sendMail({
                 to: memberEmail,
                 subject: `New Session Scheduled: ${title}`,
-                html: `
-                  <h2>🎓 New Learning Session Scheduled!</h2>
-                  <p>Hi ${memberName},</p>
-                  <p><strong>${teacherName}</strong> has scheduled a new session in your learning group:</p>
-                  <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                    <h3 style="margin-top: 0; color: #1f2937;">${title}</h3>
-                    <p style="margin: 5px 0;"><strong>Group:</strong> ${group.grade} - ${group.subject} - ${group.topic}</p>
-                    <p style="margin: 5px 0;"><strong>When:</strong> ${scheduledDate}</p>
-                    <p style="margin: 5px 0;"><strong>Duration:</strong> ${duration} minutes</p>
-                    ${meetingLink ? `<p style="margin: 5px 0;"><strong>Meeting Link:</strong> <a href="${meetingLink}">${meetingLink}</a></p>` : ''}
-                  </div>
-                  <p>Don't forget to join the session!</p>
-                  <p style="margin-top: 20px; color: #6b7280; font-size: 12px;">You're receiving this email because you're a member of this learning group.</p>
-                `,
+                html: sessionScheduledEmail(memberName, teacherName, {
+                  title,
+                  groupInfo: `${group.grade} - ${group.subject} - ${group.topic}`,
+                  scheduledDate,
+                  duration,
+                  meetingLink
+                }),
                 text: `New Session Scheduled: ${title}\n\nScheduled by: ${teacherName}\nGroup: ${group.grade} - ${group.subject} - ${group.topic}\nWhen: ${scheduledDate}\nDuration: ${duration} minutes${meetingLink ? `\nMeeting Link: ${meetingLink}` : ''}`
               });
-              console.log(`✅ Session notification email sent to ${memberEmail}`);
+              console.log(`[SUCCESS] Session notification email sent to ${memberEmail}`);
             } catch (emailError) {
-              console.error(`❌ Failed to send email to ${memberEmail}:`, emailError.message);
+              console.error(`[ERROR] Failed to send email to ${memberEmail}:`, emailError.message);
             }
           });
         
@@ -255,51 +248,33 @@ export const startSession = async (req, res) => {
       const group = await LearningGroup.findById(session.groupId._id).populate('members.userId');
       if (group && group.members && group.members.length > 0) {
         const teacherName = session.teacherId.profile?.name || session.teacherId.email;
-        const groupName = `${group.grade} - ${group.subject} - ${group.topic}`;
+        const groupInfo = `${group.grade} - ${group.subject} - ${group.topic}`;
         
         // Send emails to all members
         const emailPromises = group.members.map(async (member) => {
           if (member.userId && member.userId.email) {
             const memberName = member.userId.profile?.name || member.userId.email;
-            const emailSubject = `Session Started: ${session.title}`;
-            const emailHtml = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">Session Started!</h2>
-                <p>Hi ${memberName},</p>
-                <p>A session has just started in your learning group:</p>
-                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <h3 style="margin-top: 0; color: #1f2937;">${session.title}</h3>
-                  <p style="margin: 10px 0;"><strong>Group:</strong> ${groupName}</p>
-                  <p style="margin: 10px 0;"><strong>Teacher:</strong> ${teacherName}</p>
-                  <p style="margin: 10px 0;"><strong>Started At:</strong> ${new Date(session.startedAt).toLocaleString()}</p>
-                  ${session.duration ? `<p style="margin: 10px 0;"><strong>Duration:</strong> ${session.duration} minutes</p>` : ''}
-                </div>
-                ${session.meetingLink ? `
-                  <div style="margin: 20px 0;">
-                    <a href="${session.meetingLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Join Meeting Now</a>
-                  </div>
-                ` : ''}
-                <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-                  This is an automated notification from SaviyaLearn - P2P Education Platform
-                </p>
-              </div>
-            `;
             
             try {
               await sendMail({
                 to: member.userId.email,
-                subject: emailSubject,
-                html: emailHtml,
+                subject: `Session Started: ${session.title}`,
+                html: sessionStartedEmail(memberName, {
+                  title: session.title,
+                  groupInfo,
+                  teacherName,
+                  meetingLink: session.meetingLink
+                }),
               });
-              console.log(`Session start email sent to ${member.userId.email}`);
+              console.log(`[SUCCESS] Session start email sent to ${member.userId.email}`);
             } catch (emailErr) {
-              console.error(`Failed to send email to ${member.userId.email}:`, emailErr);
+              console.error(`[ERROR] Failed to send email to ${member.userId.email}:`, emailErr);
             }
           }
         });
         
         await Promise.allSettled(emailPromises);
-        console.log(`Session start notifications sent to ${group.members.length} members`);
+        console.log(`[INFO] Session start notifications sent to ${group.members.length} members`);
       }
     } catch (emailError) {
       console.error('Error sending session start emails:', emailError);

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendMail } from '../services/mailService.js';
 import EmailVerificationToken from '../models/EmailVerificationToken.js';
+import { welcomeEmail, verifyEmailTemplate, passwordResetEmail } from '../services/emailTemplates.js';
 
 // In-memory stores for demo (use DB or cache in production)
 const resetTokens = new Map();
@@ -40,14 +41,14 @@ export const signup = async (req, res) => {
     const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verifyToken}`;
     await sendMail({
       to: user.email,
-      subject: 'Verify your email',
-      html: `<p>Welcome, ${user.profile.name}! Please verify your email by clicking <a href="${verifyUrl}">here</a>.</p>`,
+      subject: 'Verify Your Email - Saviya Learn',
+      html: verifyEmailTemplate(user.profile.name, verifyUrl),
     });
     // Send welcome mail
     await sendMail({
       to: user.email,
-      subject: 'Welcome to the P2P Education System',
-      html: `<p>Hi ${user.profile.name},<br>Welcome to our platform! We're glad to have you.</p>`,
+      subject: 'Welcome to Saviya Learn',
+      html: welcomeEmail(user.profile.name),
     });
     res.status(201).json({ message: 'User registered. Verification email sent.' });
   } catch (err) {
@@ -127,8 +128,8 @@ export const requestPasswordReset = async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
     await sendMail({
       to: user.email,
-      subject: 'Password Reset Request',
-      html: `<p>Hi ${user.profile.name},<br>Click <a href="${resetUrl}">here</a> to reset your password. This link is valid for 1 hour.</p>`,
+      subject: 'Password Reset Request - Saviya Learn',
+      html: passwordResetEmail(user.profile.name, resetUrl),
     });
     res.json({ message: 'Password reset link sent to your email.' });
   } catch (err) {
