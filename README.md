@@ -1150,24 +1150,6 @@ console.info('[INFO] Server started on port', PORT);
 
 ---
 
-## 🧪 Testing
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test file
-npm test -- auth.test.js
-
-# Run with coverage
-npm run test:coverage
-
-# Watch mode
-npm run test:watch
-```
-
 ### Writing Tests
 
 Create test files in `/tests` directory:
@@ -1311,7 +1293,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 - **Website:** https://saviyalearn.com
 - **GitHub:** https://github.com/dinethjanitha/saviyalearning-backend
 - **Issues:** https://github.com/dinethjanitha/saviyalearning-backend/issues
-- **Email:** support@saviyalearn.com
+- **Email:** djanithak@gmail.com
 
 ---
 
