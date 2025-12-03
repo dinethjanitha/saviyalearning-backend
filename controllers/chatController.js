@@ -54,9 +54,12 @@ export const sendMessage = async (req, res) => {
     // Emit to group room via Socket.io
     try {
       const io = getIO();
+      console.log(`Emitting new-message to group-${groupId}:`, populatedMessage._id);
       io.to(`group-${groupId}`).emit('new-message', populatedMessage);
+      console.log(`Message emitted successfully to group-${groupId}`);
     } catch (err) {
-      console.log('Socket.io not available:', err.message);
+      console.error('Socket.io error:', err.message);
+      // Don't fail the request if socket fails
     }
 
     res.status(201).json({ success: true, message: populatedMessage });

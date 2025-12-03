@@ -4,12 +4,21 @@ import { Server } from 'socket.io';
 let io;
 
 export const initializeSocket = (server) => {
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://saviyalearn.vercel.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean);
+
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
   });
 
   io.on('connection', (socket) => {
@@ -27,15 +36,17 @@ export const initializeSocket = (server) => {
       console.log(`Socket ${socket.id} left group-${groupId}`);
     });
 
-    // Typing indicator
-    socket.on('typing', (data) => {
+    // Typing indicators - match frontend event names
+    socket.on('typing-start', (data) => {
+      console.log(`${data.userName} is typing in group-${data.groupId}`);
       socket.to(`group-${data.groupId}`).emit('user-typing', {
         userId: data.userId,
         userName: data.userName,
       });
     });
 
-    socket.on('stop-typing', (data) => {
+    socket.on('typing-stop', (data) => {
+      console.log(`${data.userId} stopped typing in group-${data.groupId}`);
       socket.to(`group-${data.groupId}`).emit('user-stop-typing', {
         userId: data.userId,
       });
