@@ -55,6 +55,7 @@ import chatRoutes from './routes/chatRoutes.js';
 import resourceRequestRoutes from './routes/resourceRequestRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import feedbackRoutes from './routes/feedbackRoutes.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -69,6 +70,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/resource-requests', resourceRequestRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/p2p_education';
